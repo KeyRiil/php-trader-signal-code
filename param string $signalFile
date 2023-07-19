@@ -1,0 +1,208 @@
+Функция для вычисления индикаторов на основе сигналов
+
+@param string $signalFile - путь к файлу с сигналами
+
+@param array $dataFiles - массив с путями к файлам с данными
+*/
+function calculateIndicators($signalFile, $dataFiles)
+{
+// Загружаем сигналы из файла
+$signals = loadSignals($signalFile);
+
+// Обходим каждый сигнал и вычисляем индикатор
+foreach ($signals as $signal) {
+$pair = $signal['pair']; // пара (например, btc_usdt)
+$timeframe = getTimeframe($signal['signal_id']); // временной интервал (например, 1d)
+$indicator = getIndicator($signal['signal_id']); // индикатор (например, rsi)
+$value = $signal['value']; // значение индикатора
+
+php
+Copy code
+ // Получаем данные по паре и временному интервалу
+ $data = getData($dataFiles[$pair][$timeframe]);
+
+ // Вычисляем значение индикатора
+ $indicatorValues = calculateIndicator($indicator, $data);
+
+ // Проверяем сигнал по индикатору
+ if (checkSignal($indicatorValues, $value)) {
+     // Сохраняем результат сигнала
+     saveResult($signal);
+ }
+}
+}
+
+/**
+
+Функция для загрузки сигналов из файла
+
+@param string $signalFile - путь к файлу с сигналами
+
+@return array - массив с сигналами
+*/
+function loadSignals($signalFile)
+{
+$signals = [];
+$handle = fopen($signalFile, "r");
+
+if ($handle) {
+$signalId = null;
+$signalPosition = null;
+
+php
+Copy code
+ while (($line = fgets($handle)) !== false) {
+     $line = trim($line);
+
+     if (substr($line, -1) === ':') {
+         $signalId = rtrim($line, ':');
+     } elseif ($signalId !== null) {
+         if ($line !== '') {
+             $signals[$signalPosition][$signalId][] = $line;
+         } else {
+             $signalId = null;
+             $signalPosition++;
+         }
+     }
+ }
+
+ fclose($handle);
+}
+
+return $signals;
+}
+
+/**
+
+Функция для получения временного интервала из идентификатора сигнала
+
+@param string $signalId - идентификатор сигнала (например, btc_usdt/1d/rsi)
+
+@return string - временной интервал (например, 1d)
+*/
+function getTimeframe($signalId)
+{
+$parts = explode('/', $signalId);
+
+return $parts[1];
+}
+
+/**
+
+Функция для получения индикатора из идентификатора сигнала
+
+@param string $signalId - идентификатор сигнала (например, btc_usdt/1d/rsi)
+
+@return string - индикатор (например, rsi)
+*/
+function getIndicator($signalId)
+{
+$parts = explode('/', $signalId);
+
+return $parts[2];
+}
+
+/**
+
+Функция для получения данных из файла
+
+@param string $dataFile - путь к файлу с данными
+
+@return array - массив с данными
+*/
+function getData($dataFile)
+{
+$rawData = file_get_contents($dataFile);
+$lines = explode("\n", $rawData);
+$data = [];
+
+foreach ($lines as $line) {
+$data[] = json_decode($line, true);
+}
+
+return $data;
+}
+
+/**
+
+Функция для вычисления значения индикатора
+
+@param string $indicator - индикатор (например, rsi)
+
+@param array $data - массив с данными
+
+@return array - массив со значениями индикатора
+*/
+function calculateIndicator($indicator, $data)
+{
+switch ($indicator) {
+case 'rsi':
+$period = 14;
+$values = array_column($data, 'c');
+$result = trader_rsi($values, $period);
+break;
+case 'macd':
+$shortPeriod = 2;
+$longPeriod = 3;
+$signalPeriod = 5;
+$closeValues = array_column($data, 'c');
+$result = trader_macd($closeValues, $shortPeriod, $longPeriod, $signalPeriod);
+break;
+case 'bbands1':
+case 'bbands2':
+case 'bbands3':
+$period = 14;
+$values = array_column($data, 'c');
+$result = trader_bbands($values, $period);
+break;
+default:
+$result = [];
+break;
+}
+
+return $result;
+}
+
+/**
+
+Функция для проверки сигнала по значению индикатора
+
+@param array $indicatorValues - массив со значениями индикатора
+
+@param int $value - значение индикатора
+
+@return bool - результат проверки сигнала
+*/
+function checkSignal($indicatorValues, $value)
+{
+$lastValue = end($indicatorValues);
+
+return $lastValue > $value;
+}
+
+/**
+
+Функция для сохранения результата сигнала
+
+@param array $signal - сигнал
+*/
+function saveResult($signal)
+{
+$resultFile = 'results.txt';
+$signal['ts'] = time();
+$signal['dt'] = date('Y-m-d H:i:s', $signal['ts']);
+
+$resultJson = json_encode($signal) . "\n";
+
+file_put_contents($resultFile, $resultJson, FILE_APPEND);
+}
+
+// Пример использования
+$signalFile = 'signals.txt';
+$dataFiles = [
+'btc_usdt' => 'btcusdt.txt',
+'eth_usdt' => 'ethusdt.txt',
+];
+
+calculateIndicators($signalFile, $dataFiles);
+*/
